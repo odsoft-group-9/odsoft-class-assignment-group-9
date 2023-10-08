@@ -105,7 +105,6 @@
       "text",
       "clover"
     ],
-    "coverageDirectory": "coverage",
     "collectCoverage": true,
     "collectCoverageFrom": [
       "src/**/*.ts"

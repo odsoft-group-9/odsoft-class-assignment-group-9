@@ -11,6 +11,10 @@ import { has } from 'lodash'
 import { CommentVote } from "./commentVote";
 import { CommentVotes } from "./commentVotes";
 
+/**
+ * Represents a comment entity.
+ * @extends {Entity}
+ */
 export interface CommentProps {
   memberId: MemberId;
   text: CommentText;

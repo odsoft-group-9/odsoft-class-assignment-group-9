@@ -1,0 +1,221 @@
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+plugins {
+    id "com.github.node-gradle.node" version "7.0.0"
+}
+
+node {
+    version = '12.22.12'
+    npmVersion = '6.14.16'
+    download = true
+}
+
+// GLOBAL VARIABLES //
+def defaultCoveragePath = "coverage"
+def defaultReportNameFile = "test-report"
+
+def rootTestPath = "tests-docs"
+def coveragePathApi = "/${rootTestPath}/coverage/api/"
+def coveragePathUnit = "/${rootTestPath}/coverage/unit/"
+def reportsPathUnit = "/${rootTestPath}/reports/unit/"
+def reportsPathApi = "/${rootTestPath}/reports/api/"
+def apiTestPath = "/api"
+
+// STATIC FUNCTIONS //
+
+/**
+ * Returns the current time on yyyy-MM-dd-HH-mm-ss format
+ */
+static def getCurrentTime() {
+    LocalDateTime currentTime = LocalDateTime.now()
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
+    return currentTime.format(formatter)
+}
+
+/**
+ * Check for the operation system and returns the correct npm command
+ */
+static def giveNpmCommand() {
+    return System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows') ? 'npm.cmd' : "npm";
+}
+
+/**
+ * Check if a given port has an active process
+ */
+static def isPortActive(String port) {
+    def command = "netstat -na | find \"$port\""
+    def process = command.execute()
+    def output = process.text.trim()
+    process.waitFor()
+    return !output.empty
+}
+
+/**
+ * Function to start the backend application in the background
+ */
+def startBackgroundProcess() {
+    def command = "${giveNpmCommand()} run start:dev"
+    def processBuilder = new ProcessBuilder(command.split())
+    processBuilder.directory(project.projectDir)
+
+    // redirect standard output and error to dev/null to run in the background
+    processBuilder.redirectOutput(ProcessBuilder.Redirect.PIPE)
+    processBuilder.redirectError(ProcessBuilder.Redirect.PIPE)
+
+    return processBuilder.start()
+}
+
+// BUILD-RUN TASKS //
+tasks.register('restartDatabase', NpmTask) {
+    description = 'Sets the database'
+    dependsOn npmInstall
+
+    args = ['run', 'db:delete:dev', '&&', 'npm', 'run', 'db:create:dev', '&&', 'npm', 'run', 'migrate:dev']
+}
+
+tasks.register('flushDatabase', NpmTask) {
+    description = 'Flush the database'
+
+    args = ['run', 'db:flush:dev']
+}
+
+tasks.register('startBackend', NpmTask) {
+    description = 'Starts the backend application including databases'
+    dependsOn restartDatabase
+
+    args = ['run', 'start:dev']
+}
+
+tasks.register('build', NpmTask) {
+    description = 'Build the project using the npm'
+    dependsOn npmInstall
+
+    args = ['run', 'build']
+}
+
+tasks.register('runTotally', NpmTask) {
+    description = 'Run up all the project (backend, DB and frontend). Note: Is necessary to have DB docker instances running.'
+
+    args = ['run', 'setup:dev', '&&', 'npm', 'run', 'start:both']
+}
+
+// TEST TASKS //
+tasks.register('runUnitTests', NodeTask) {
+    description = "Run the unit tests and saves the output on: ${project.projectDir.getAbsolutePath()}${reportsPathUnit}. Note: Is necessary to have backend running"
+    dependsOn npmInstall
+
+    script = file('node_modules/jest/bin/jest.js')
+    args = ['--config', 'jest.config.js', "--testPathIgnorePatterns=$apiTestPath", '--silent']
+
+    doLast {
+        def time = getCurrentTime()
+        copy {
+            //move the report html file
+            from "${defaultReportNameFile}.html"
+            into "$reportsPathUnit"
+            rename("${defaultReportNameFile}.html", "${time}.html")
+        }
+        println "Report saved >> ${project.projectDir.getAbsolutePath()}${reportsPathUnit}${time}.html"
+    }
+}
+
+tasks.register('generateUnitTestsCoverageReport', NodeTask) {
+    description = "Run the unit tests with coverage test and saves the output on: ${project.projectDir.getAbsolutePath()}${reportsPathUnit} and ${project.projectDir.getAbsolutePath()}${coveragePathUnit}. Note: Is necessary to have backend running"
+    dependsOn npmInstall
+
+    script = file('node_modules/jest/bin/jest.js')
+    args = ['--coverage', "--testPathIgnorePatterns=$apiTestPath", '--coverageReporters=\"text\"', '--coverageReporters=\"html\"', '--coverageReporters=\"json\"']
+
+    doLast {
+        def time = getCurrentTime()
+        copy {
+            //move the report html file
+            from "${defaultReportNameFile}.html"
+            into "$reportsPathUnit"
+            rename("${defaultReportNameFile}.html", "${time}.html")
+        }
+        copy {
+            //move the coverage file
+            from "$defaultCoveragePath"
+            into "$coveragePathUnit/${time}"
+        }
+        println "Report saved >> ${project.projectDir.getAbsolutePath()}${reportsPathUnit}${time}.html"
+        println "Coverage report saved >> ${project.projectDir.getAbsolutePath()}${coveragePathUnit}${time}"
+    }
+}
+
+tasks.register('runAPITests', NodeTask) {
+    description = "Run the API tests and saves the output on: ${project.projectDir.getAbsolutePath()}${reportsPathApi}"
+    dependsOn restartDatabase
+
+//    def backendProcess = null
+//    doFirst {
+//        // start the backend application in the background
+//        backendProcess = startBackgroundProcess()
+//    }
+
+    script = file('node_modules/jest/bin/jest.js')
+    args = ['--runInBand', "--testPathPattern=$apiTestPath", '--detectOpenHandles']
+
+    doLast {
+        def time = getCurrentTime()
+        copy {
+            // Move the report html file
+            from "${defaultReportNameFile}.html"
+            into "$reportsPathApi"
+            rename("${defaultReportNameFile}.html", "${time}.html")
+        }
+        println "Report saved >> ${project.projectDir.getAbsolutePath()}${reportsPathApi}${time}.html"
+    }
+}
+
+tasks.register('generateAPITestsCoverageReport', NodeTask) {
+    description = "Run the unit tests with coverage test and saves the output on: ${project.projectDir.getAbsolutePath()}${reportsPathApi} and ${project.projectDir.getAbsolutePath()}${coveragePathApi}"
+    dependsOn restartDatabase
+
+    script = file('node_modules/jest/bin/jest.js')
+    args = ['--coverage', '--coverageReporters=html', '--runInBand', "--testPathPattern=$apiTestPath"]
+
+    doLast {
+        def time = getCurrentTime()
+        copy {
+            //move the report html file
+            from "${defaultReportNameFile}.html"
+            into "$reportsPathApi"
+            rename("${defaultReportNameFile}.html", "${time}.html")
+        }
+        copy {
+            //move the coverage file
+            from "$defaultCoveragePath"
+            into "$coveragePathApi/${time}"
+        }
+        println "Report saved >> ${project.projectDir.getAbsolutePath()}${reportsPathApi}${time}.html"
+        println "Coverage report saved >> ${project.projectDir.getAbsolutePath()}${coveragePathApi}${time}"
+    }
+}
+
+tasks.register('deleteTestFolder', Delete) {
+    description = "Delete the test folder if exits"
+    delete "/${rootTestPath}/"
+}
+
+tasks.register('zipTestFolder', Zip) {
+    description = "Zips the test folder if exits"
+    archiveFileName = "${rootTestPath}.zip"
+    destinationDirectory = file("/")
+
+    from "/${rootTestPath}"
+}
+
+// DOCS TASKS //
+tasks.register('docsGeneration', NodeTask) {
+    description = "Generate the docs of the project"
+    dependsOn build
+
+    script = file('node_modules/jsdoc/jsdoc.js')
+    args = ['-c', 'jsdoc.json']
+}
+
+
+
