@@ -67,6 +67,13 @@ def startBackgroundProcess() {
 }
 
 // BUILD-RUN TASKS //
+tasks.register('build', NpmTask) {
+    description = 'Build the project using the npm'
+    dependsOn npmInstall
+
+    args = ['run', 'build']
+}
+
 tasks.register('restartDatabase', NpmTask) {
     description = 'Sets the database'
     dependsOn npmInstall
@@ -85,13 +92,6 @@ tasks.register('startBackend', NpmTask) {
     dependsOn restartDatabase
 
     args = ['run', 'start:dev']
-}
-
-tasks.register('build', NpmTask) {
-    description = 'Build the project using the npm'
-    dependsOn npmInstall
-
-    args = ['run', 'build']
 }
 
 tasks.register('runTotally', NpmTask) {
@@ -214,8 +214,5 @@ tasks.register('docsGeneration', NodeTask) {
     dependsOn build
 
     script = file('node_modules/jsdoc/jsdoc.js')
-    args = ['-c', 'jsdoc.json']
+    args = ['-c', '\"./jsdocconfig.json\"']
 }
-
-
-
