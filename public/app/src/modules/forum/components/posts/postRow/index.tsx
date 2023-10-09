@@ -1,6 +1,8 @@
 
-import PostRow from "./components/PostRow";
+import PopularPostRow from "./components/PopularPostRow";
+import NewPostRow from "./components/NewPostRow";
 
 export {
-  PostRow
+  PopularPostRow,
+  NewPostRow
 }

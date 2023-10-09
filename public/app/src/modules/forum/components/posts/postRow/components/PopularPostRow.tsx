@@ -5,13 +5,13 @@ import { Post } from '../../../../models/Post';
 import { Points } from '../../points';
 import PostMeta from '../../post/components/PostMeta';
 
-interface PostRowProps extends Post {
+interface PopularPostRowProps extends Post {
   onUpvoteClicked: () => void;
   onDownvoteClicked: () => void;
   isLoggedIn: boolean;
 }
 
-const PostRow: React.FC<PostRowProps> = (props) => (
+const PopularPostRow: React.FC<PopularPostRowProps> = (props) => (
   <div className="post-row">
     <Points
       onUpvoteClicked={() => props.onUpvoteClicked()}
@@ -23,4 +23,4 @@ const PostRow: React.FC<PostRowProps> = (props) => (
   </div>
 )
 
-export default PostRow;
+export default PopularPostRow;
