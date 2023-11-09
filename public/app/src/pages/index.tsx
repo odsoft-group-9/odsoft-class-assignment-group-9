@@ -85,7 +85,7 @@ class IndexPage extends React.Component<IndexPageProps, IndexPageState> {
     if (this.state.activeFilter === 'NEW') {
       return this.props.forum.recentPosts;
     } else {
-      return this.props.forum.popularPosts;
+      return this.props.forum.popularPosts.slice(0, 5);
     }
   }
 
